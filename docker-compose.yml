@@ -1,0 +1,31 @@
+version: '3'
+services:
+  drupal:
+    container_name: $DRUPAL_CONTAINER_NAME
+    build:
+      context: .
+      args: 
+        - DRUPAL_IMAGE_VERSION=${DRUPAL_IMAGE_VERSION}
+    ports: 
+    - $DRUPAL_PORTS
+    depends_on:
+      - db
+    links:
+      - db
+    volumes:
+      - ${DRUPAL_LOCAL}:${DRUPAL_ROOT}
+      - ${PROJECT_CONFIG_PATH}:${DRUPAL_ROOT}/config
+  db:
+    container_name: $DB_CONTAINER_NAME
+    image: mariadb:$DB_TAG
+    ports:
+    - $DB_PORT:$DB_PORT
+    environment:
+      MYSQL_ROOT_PASSWORD: $DB_ROOT_PASSWORD
+      MYSQL_USER: $DB_USER
+      MYSQL_PASSWORD: $DB_PASSWORD
+      MYSQL_DATABASE: $DB_NAME
+
+
+
+
