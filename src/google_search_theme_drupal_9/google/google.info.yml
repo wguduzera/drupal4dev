@@ -1,0 +1,28 @@
+name: Google
+type: theme
+description: 'Google search engine theme for drupal 9'
+core_version_requirement: ^8 || ^9
+libraries: 
+  - google/global-styling
+base theme: classy
+regions: 
+  sidebar: 'Google Sidebar'
+  header: 'Header'
+  footer: 'Footer'
+  content: 'Content'
+  help: 'Help'
+  breadcrumb: 'Breadcrumb'
+  highlighted: 'Highlighted'
+  primary_menu: 'Primary Menu'
+screenshot: google.png
+hidden: false
+logo: images/logo.png
+features: 
+  - comment_user_verification
+  - logo
+  - favicon
+  - node_user_picture
+libraries-override: 
+  classy/base: false
+stylesheets-remove:
+  - core/assets/vendor/normalize-css/normalize.css
