@@ -6,9 +6,9 @@ LABEL maintainer="Comanche Team"
 # Delete Drupal
 RUN rm -fr /var/www/html/* 
 
-#TRT12 certificate
-COPY config/trt12.jus.br.crt /usr/local/share/ca-certificates/ 
-RUN update-ca-certificates
+#TRT12 certificate - para uso dentro da rede do TRT12
+#COPY config/trt12.jus.br.crt /usr/local/share/ca-certificates/ 
+#RUN update-ca-certificates
 
 #Install necessary packages and 
 RUN set -ex \
