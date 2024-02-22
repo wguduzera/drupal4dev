@@ -2,7 +2,7 @@ include .env
 
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 DOCKER               = docker
-DOCKER_COMPOSE       = docker-compose
+DOCKER_COMPOSE       = docker compose
 DOCKER_COMPOSE_FILE  = $(ROOT_DIR)/docker-compose.yml
 DOCKER_COMPOSE_LOCAL = $(DOCKER_COMPOSE) --file $(DOCKER_COMPOSE_FILE)
 
@@ -10,7 +10,7 @@ EXEC_CONTAINER       = $(DOCKER_COMPOSE) --file $(DOCKER_COMPOSE_FILE) exec
 EXEC_PHP             = $(EXEC_CONTAINER) drupal
 EXEC_DATABASE	 	 = $(EXEC_CONTAINER) db
 
-BACKUP_DIR_FILE=../config/dump/$(PROJECT_NAME).sql
+BACKUP_DIR_FILE=config/dump/$(PROJECT_NAME).sql
 
 default: up
 
@@ -27,7 +27,7 @@ endif
 
 ## up : Subir o projeto
 .PHONY: up
-up: usergroup install permissions dockerup dev-deps site-install permissions
+up: usergroup install permissions dockerup dev-deps site-install debugMode permissions
 
 ## usergroup : Adicionar usuário local no grupo www-data
 .PHONY: usergroup
@@ -68,17 +68,52 @@ site-install:
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c " sed -i 's/sites\/default\/files.\+sync/..\/config\/sync/g' web/sites/default/settings.php"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 
+
+## backup	:	Backup drupal site
+.PHONY: debugMode
+debugMode:
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "cat << EOF >> drupal/sites/default/settings.php
+	$settings['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';
+	$settings['cache']['bins']['render'] = 'cache.backend.null';
+	$settings['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';
+	$settings['cache']['bins']['page'] = 'cache.backend.null';
+	$config['system.performance']['css']['preprocess'] = FALSE;
+	$config['system.performance']['js']['preprocess'] = FALSE;
+	EOF
+	"
+	
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "cat >| drupal/web/sites/development.services.yml << EOF
+	# Local development services.
+	#
+	# To activate this feature, follow the instructions at the top of the
+	# 'example.settings.local.php' file, which sits next to this file.
+	parameters:
+	http.response.debug_cacheability_headers: true
+	twig.config:
+		debug: true
+		auto_reload: true
+		cache: false
+	services:
+	cache.backend.null:
+		class: Drupal\Core\Cache\NullBackendFactory
+	EOF
+	"
+
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush -y config-set system.performance css.preprocess 0"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush -y config-set system.performance js.preprocess 0"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
+
 ## backup	:	Backup drupal site
 .PHONY: backup
 backup:
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cex -y"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush sql-dump --result-file=$(BACKUP_DIR_FILE)"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush sql-dump --result-file=../$(BACKUP_DIR_FILE)"
 
 ## restore	:	Backup drupal site
 .PHONY: restore
  restore: 
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush sqlc < ./config/dump/projeto4devs.sql"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush sqlc < ./$(BACKUP_DIR_FILE)"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cim -y"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush updb -y"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
