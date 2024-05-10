@@ -1,4 +1,3 @@
-version: '3'
 services:
   drupal:
     container_name: $DRUPAL_CONTAINER_NAME
@@ -25,7 +24,3 @@ services:
       MYSQL_USER: $DB_USER
       MYSQL_PASSWORD: $DB_PASSWORD
       MYSQL_DATABASE: $DB_NAME
-
-
-
-
