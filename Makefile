@@ -59,6 +59,7 @@ dockerup:
 dev-deps:
 	@echo ">> Instalando modulos para desenvolvimento"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "composer require -n drush/drush drupal/devel drupal/devel_kint_extras drupal/admin_toolbar"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush en -y devel devel_kint_extras admin_toolbar"
 
 ## si : site-install com instalação de módulos para DEV
 .PHONY: site-install
