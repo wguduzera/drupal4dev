@@ -27,7 +27,7 @@ endif
 
 ## up : Subir o projeto
 .PHONY: up
-up: usergroup install permissions dockerup dev-deps site-install debugMode permissions
+up: usergroup install permissions dockerup mod-install site-install mod-enable permissions
 
 ## usergroup : Adicionar usuário local no grupo www-data
 .PHONY: usergroup
@@ -54,12 +54,17 @@ dockerup:
 	@echo ">> Subindo containers"
 	@$(DOCKER_COMPOSE_LOCAL) up -d --remove-orphans
 
-## dev-deps : Instalar módulos para desenvolvimento
-.PHONY: dev-deps
-dev-deps:
-	@echo ">> Instalando modulos para desenvolvimento"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "composer require -n drush/drush drupal/devel drupal/devel_kint_extras drupal/admin_toolbar"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush en -y devel devel_kint_extras admin_toolbar"
+## mod-install : Instalar módulos
+.PHONY: mod-install
+mod-install:
+	@echo ">> Instalando modulos"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "composer require -n $(DRUPAL_CONTRIB_MODULES) $(DRUPAL_CONTRIB_MODULES_INSTALL)"
+	
+## mod-enable : Habilitando módulos
+.PHONY: mod-enable
+mod-enable:
+	@echo ">> Habilitando modulos"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush en -y "${DRUPAL_CONTRIB_MODULES_INSTALL//"drupal/"/}""
 
 ## si : site-install com instalação de módulos para DEV
 .PHONY: site-install
