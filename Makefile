@@ -7,12 +7,12 @@ DOCKER_COMPOSE_FILE  = $(ROOT_DIR)/docker-compose.yml
 DOCKER_COMPOSE_LOCAL = $(DOCKER_COMPOSE) --file $(DOCKER_COMPOSE_FILE)
 
 EXEC_CONTAINER       = $(DOCKER_COMPOSE) --file $(DOCKER_COMPOSE_FILE) exec
-EXEC_PHP             = $(EXEC_CONTAINER) drupal
-EXEC_DATABASE	 	 = $(EXEC_CONTAINER) db
+EXEC_DRUPAL             = $(EXEC_CONTAINER) drupal
+EXEC_DB	 	 		 = $(EXEC_CONTAINER) db
 
 BACKUP_DIR_FILE=config/dump/$(PROJECT_NAME).sql
 
-default: up
+default: help
 
 ## help	:	Print commands help.
 .PHONY: help
@@ -24,31 +24,17 @@ help : Makefile
 	@sed -n 's/^##//p' $<
 endif
 
-
 ## up : Subir o projeto
 .PHONY: up
-up: usergroup install permissions dockerup mod-install site-install mod-enable permissions
-
-## usergroup : Adicionar usuário local no grupo www-data
-.PHONY: usergroup
-usergroup:
-	@echo ">>Adicionando usuário local ao grupo www-data"
-	sudo usermod -a -G www-data ${USER}
+up: install dockerup mod-install site-install mod-enable twig-debug permissions
 
 ## install : Instalar Drupal
 .PHONY: install
 install:
 	@echo ">> instalando o drupal ${DRUPAL_VERSION}"
-	composer create-project drupal/recommended-project:${DRUPAL_VERSION} ${PROJECT_NAME} --no-interaction
-	cp ./${PROJECT_NAME}/web/core/assets/scaffold/files/drupal.README.md ./${PROJECT_NAME}/web/core/assets/scaffold/files/drupal.README.txt
+	@composer create-project drupal/recommended-project:${DRUPAL_VERSION} ${PROJECT_NAME} --no-interaction
 
-## Ajustar permissões na pasta do projeto para permitir edição de arquivos localmente
-.PHONY: permissions
-permissions:
-	@echo ">> Ajustando permissões para edição local de arquivos"
-	sudo chown -R ${USER}:www-data ./$(PROJECT_NAME) && sudo chmod -R 775 ./$(PROJECT_NAME) && sudo chmod -R g+s ./$(PROJECT_NAME)
-
-## up :	Start up containers
+## dockerup :	Start up containers
 .PHONY: dockerup
 dockerup:
 	@echo ">> Subindo containers"
@@ -58,56 +44,38 @@ dockerup:
 .PHONY: mod-install
 mod-install:
 	@echo ">> Instalando modulos"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "composer require -n $(DRUPAL_CONTRIB_MODULES) $(DRUPAL_CONTRIB_MODULES_INSTALL)"
-	
+	@cd drupal && composer require -n "$(DRUPAL_CONTRIB_MODULES_INSTALL)"
+
 ## mod-enable : Habilitando módulos
 .PHONY: mod-enable
 mod-enable:
 	@echo ">> Habilitando modulos"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush en -y "${DRUPAL_CONTRIB_MODULES_INSTALL//"drupal/"/}""
+	@$(EXEC_DRUPAL) sh -c "drush en -y "$(subst drupal/,,${DRUPAL_CONTRIB_MODULES_ENABLE}")"
 
-## si : site-install com instalação de módulos para DEV
+## si : site-install
 .PHONY: site-install
 site-install:
-	@echo ">> Configurando o Drupal para o projeto"
+	@echo ">> Instalando o Drupal"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --db-url=${DB_URL} --site-name=$(PROJECT_NAME) -y"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c " sed -i 's/sites\/default\/files.\+sync/..\/config\/sync/g' web/sites/default/settings.php"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 
+## twig-debug : Twig debug
+.PHONY: twig-debug
+twig-debug:
+	@echo ">> Habilitando debud de twig"
+	@$(EXEC_DRUPAL) sh -c "cp -rp config/development.services.yml web/sites/ && cp -rp config/settings.php web/sites/default/"
 
-## backup	:	Backup drupal site
-.PHONY: debugMode
-debugMode:
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "cat << EOF >> drupal/sites/default/settings.php
-	$settings['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';
-	$settings['cache']['bins']['render'] = 'cache.backend.null';
-	$settings['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';
-	$settings['cache']['bins']['page'] = 'cache.backend.null';
-	$config['system.performance']['css']['preprocess'] = FALSE;
-	$config['system.performance']['js']['preprocess'] = FALSE;
-	EOF
-	"
-	
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "cat >| drupal/web/sites/development.services.yml << EOF
-	# Local development services.
-	#
-	# To activate this feature, follow the instructions at the top of the
-	# 'example.settings.local.php' file, which sits next to this file.
-	parameters:
-	http.response.debug_cacheability_headers: true
-	twig.config:
-		debug: true
-		auto_reload: true
-		cache: false
-	services:
-	cache.backend.null:
-		class: Drupal\Core\Cache\NullBackendFactory
-	EOF
-	"
+## usergroup : Adicionar usuário local no grupo www-data
+.PHONY: usergroup
+usergroup:
+	@echo ">>Adicionando usuário local ao grupo www-data"
+	sudo usermod -a -G www-data ${USER}
 
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush -y config-set system.performance css.preprocess 0"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush -y config-set system.performance js.preprocess 0"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
+## Ajustar permissões na pasta do projeto para permitir edição de arquivos localmente
+.PHONY: permissions
+permissions:
+	@echo ">> Ajustando permissões para edição local de arquivos"
+	sudo chown -R ${USER}:www-data ./$(PROJECT_NAME) && sudo chmod -R 775 ./$(PROJECT_NAME) && sudo chmod -R g+s ./$(PROJECT_NAME)
 
 ## backup	:	Backup drupal site
 .PHONY: backup
@@ -148,7 +116,7 @@ down:
 	@echo ">> Removing containers "
 	@$(DOCKER_COMPOSE_LOCAL) down -v $(filter-out $@,$(MAKECMDGOALS))
 	@echo ">> Removing project folder"
-	@sudo rm -fr $(PROJECT_NAME)
+	@rm -fr $(PROJECT_NAME)
 
 ## ps	:	List running containers.
 .PHONY: ps
