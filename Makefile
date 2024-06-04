@@ -56,7 +56,19 @@ mod-enable:
 .PHONY: site-install
 site-install:
 	@echo ">> Instalando o Drupal"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --db-url=${DB_URL} --site-name=$(PROJECT_NAME) -y"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --locale=pt-br --db-url="mysql://root:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_NAME}" --site-name=$(PROJECT_NAME) -y"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
+
+## multi : multisite : make multisite NEW_SITE=<NOME_DO_NOVO_SITE>
+.PHONY: multisite
+multisite:
+	@echo ">> Instalando novo site"
+	@$(EXEC_DB) sh -c "mysql -uroot -pdrupal -e 'CREATE DATABASE $(NEW_SITE);'"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "touch /etc/apache2/sites-available/$(NEW_SITE).conf"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "echo '<VirtualHost *:80> \n DocumentRoot /var/www/html \n ServerName $(NEW_SITE).localhost \n ErrorLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost.log \n CustomLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost_error.log combined \n </VirtualHost>' > /etc/apache2/sites-available/$(NEW_SITE).conf"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --locale=pt-br --sites-subdir=$(NEW_SITE) --db-url='mysql://root:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${NEW_SITE}' --site-name=$(NEW_SITE) -y"
+	@make permissions
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "echo '\$$sites['\''$(NEW_SITE).localhost'\''] = '\''$(NEW_SITE)'\'';'" >> drupal/web/sites/sites.php
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 
 ## twig-debug : Twig debug

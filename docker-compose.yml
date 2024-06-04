@@ -1,6 +1,5 @@
 services:
   drupal:
-    container_name: $DRUPAL_CONTAINER_NAME
     build:
       context: .
       args: 
@@ -15,7 +14,6 @@ services:
       - ${DRUPAL_LOCAL}:${DRUPAL_ROOT}
       - ${PROJECT_CONFIG_PATH}:${DRUPAL_ROOT}/config
   db:
-    container_name: $DB_CONTAINER_NAME
     image: mariadb:$DB_TAG
     ports:
     - $DB_PORT:$DB_PORT
