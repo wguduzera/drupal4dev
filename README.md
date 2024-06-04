@@ -5,6 +5,7 @@ Plug&amp;Play Drupal environment
 Código para subir um Projeto Plug 'n Play do Drupal para desenvolvimento.
 
 ## Requisitos ##
+Linux, 
 Docker,
 Docker Compose,
 Composer.
