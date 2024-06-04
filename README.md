@@ -5,9 +5,9 @@ Plug&amp;Play Drupal environment
 Código para subir um Projeto Plug 'n Play do Drupal para desenvolvimento.
 
 ## Requisitos ##
-Docker
-Docker Compose
-Composer
+Docker,
+Docker Compose,
+Composer.
 
 ## Orientações ##
 * variáveis em estão no arquivo - .env
@@ -23,4 +23,17 @@ make up
 * Acessando
 ```
 https://localhost:8080
+```
+
+### Multisite ###
+* Após subir o projeto, criar um novo site
+```
+make multisite NEW_SITE=<NOME_SITE>
+
+Ex.: make multisite NEW_SITE=projeto2
+```
+
+* Acessando
+```
+https://projeto2.localhost:8080
 ```
