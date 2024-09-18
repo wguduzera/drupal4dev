@@ -14,11 +14,19 @@ services:
       - ${DRUPAL_LOCAL}:${DRUPAL_ROOT}
       - ${PROJECT_CONFIG_PATH}:${DRUPAL_ROOT}/config
   db:
-    image: mariadb:$DB_TAG
+    image: $DB_IMAGE
     ports:
     - $DB_PORT:$DB_PORT
     environment:
-      MYSQL_ROOT_PASSWORD: $DB_ROOT_PASSWORD
-      MYSQL_USER: $DB_USER
-      MYSQL_PASSWORD: $DB_PASSWORD
-      MYSQL_DATABASE: $DB_NAME
+      # MYSQL_USER: $DB_USER
+      # MYSQL_PASSWORD: $DB_PASSWORD
+      # MYSQL_ROOT_PASSWORD: $DB_ROOT_PASSWORD
+      # MYSQL_DATABASE: $DB_NAME
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASSWORD
+    volumes:      
+      - ./config/initdb:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

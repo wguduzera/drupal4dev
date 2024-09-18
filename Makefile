@@ -26,7 +26,7 @@ endif
 
 ## up : Subir o projeto
 .PHONY: up
-up: install dockerup mod-install site-install mod-enable twig-debug permissions
+up: usergroup install dockerup mod-install site-install mod-enable permissions twig-debug
 
 ## install : Instalar Drupal
 .PHONY: install
@@ -46,18 +46,38 @@ mod-install:
 	@echo ">> Instalando modulos"
 	@cd drupal && composer require -n "$(DRUPAL_CONTRIB_MODULES_INSTALL)"
 
+## si : site-install
+.PHONY: site-install
+site-install:
+	@echo ">> Instalando o Drupal"
+	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --db-url=$(DB_URL) --account-name=admin --account-pass=admin --locale=pt-br --site-name=$(PROJECT_NAME) -y && drush cr"
+
 ## mod-enable : Habilitando módulos
 .PHONY: mod-enable
 mod-enable:
 	@echo ">> Habilitando modulos"
 	@$(EXEC_DRUPAL) sh -c "drush en -y "$(subst drupal/,,${DRUPAL_CONTRIB_MODULES_ENABLE}")"
 
-## si : site-install
-.PHONY: site-install
-site-install:
-	@echo ">> Instalando o Drupal"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --locale=pt-br --db-url="mysql://root:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${DB_NAME}" --site-name=$(PROJECT_NAME) -y"
-	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
+## twig-debug : Twig debug
+.PHONY: twig-debug
+define SETTINGS_CONFIG
+'$$settings'"['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';" \\n'$$settings'"['cache']['bins']['render'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['page'] = 'cache.backend.null';" \\n'$$config'"['system.performance']['css']['preprocess'] = FALSE;" \\n'$$config'"['system.performance']['js']['preprocess'] = FALSE;" \\n
+endef
+
+define DEV_SERVICES
+"parameters:\n  http.response.debug_cacheability_headers: true\n  twig.config:\n    debug: true\n    auto_reload: true\n    cache: false\nservices:\n  cache.backend.null:\n    class: Drupal\\Core\\Cache\\NullBackendFactory"
+endef
+
+twig-debug:
+	@echo ">> Habilitando debud de twig"
+	@echo $(SETTINGS_CONFIG) >> drupal/web/sites/default/settings.php
+	@echo $(DEV_SERVICES) > drupal/web/sites/development.services.yml
+	
+## Ajustar permissões na pasta do projeto para permitir edição de arquivos localmente
+.PHONY: permissions
+permissions:
+	@echo ">> Ajustando permissões para edição local de arquivos"
+	sudo chown -R ${USER}:www-data ./$(PROJECT_NAME) && sudo chmod -R 775 ./$(PROJECT_NAME) && sudo chmod -R g+s ./$(PROJECT_NAME)
 
 ## multi : multisite : make multisite NEW_SITE=<NOME_DO_NOVO_SITE>
 .PHONY: multisite
@@ -71,27 +91,16 @@ multisite:
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "echo '\$$sites['\''$(NEW_SITE).localhost'\''] = '\''$(NEW_SITE)'\'';'" >> drupal/web/sites/sites.php
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 
-## twig-debug : Twig debug
-.PHONY: twig-debug
-twig-debug:
-	@echo ">> Habilitando debud de twig"
-	@$(EXEC_DRUPAL) sh -c "cp -rp config/development.services.yml web/sites/ && cp -rp config/settings.php web/sites/default/"
-
 ## usergroup : Adicionar usuário local no grupo www-data
 .PHONY: usergroup
 usergroup:
 	@echo ">>Adicionando usuário local ao grupo www-data"
 	sudo usermod -a -G www-data ${USER}
 
-## Ajustar permissões na pasta do projeto para permitir edição de arquivos localmente
-.PHONY: permissions
-permissions:
-	@echo ">> Ajustando permissões para edição local de arquivos"
-	sudo chown -R ${USER}:www-data ./$(PROJECT_NAME) && sudo chmod -R 775 ./$(PROJECT_NAME) && sudo chmod -R g+s ./$(PROJECT_NAME)
-
 ## backup	:	Backup drupal site
 .PHONY: backup
 backup:
+	sites/default/settings.php
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cr"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush cex -y"
 	@$(DOCKER_COMPOSE_LOCAL) exec drupal sh -c "drush sql-dump --result-file=../$(BACKUP_DIR_FILE)"
@@ -128,7 +137,7 @@ down:
 	@echo ">> Removing containers "
 	@$(DOCKER_COMPOSE_LOCAL) down -v $(filter-out $@,$(MAKECMDGOALS))
 	@echo ">> Removing project folder"
-	@rm -fr $(PROJECT_NAME)
+	@sudo rm -fr $(PROJECT_NAME)
 
 ## ps	:	List running containers.
 .PHONY: ps
@@ -163,6 +172,10 @@ drush:
 logs:
 	@$(DOCKER_COMPOSE_LOCAL) logs -f $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: teste
+teste:
+	@sed -i "s|\$settings\['config_sync_directory'\] = 'sites/default/files/config[^']*/sync';|\$settings['config_sync_directory'] = 'config/sync';|" drupal/web/sites/default/settings.php
+	
 # https://stackoverflow.com/a/6273809/1826109
 %:
 	@:
