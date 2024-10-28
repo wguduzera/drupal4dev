@@ -10,8 +10,6 @@ EXEC_CONTAINER       = $(DOCKER_COMPOSE) --file $(DOCKER_COMPOSE_FILE) exec
 EXEC_DRUPAL          = $(EXEC_CONTAINER) drupal
 EXEC_DB	 	 		 = $(EXEC_CONTAINER) db
 
-BACKUP_DIR_FILE=config/dump/$(PROJECT_NAME).sql
-
 default: help
 
 ## help	:	Print commands help.
@@ -26,7 +24,7 @@ endif
 
 ## up : Subir o projeto
 .PHONY: up
-up: dockerup install mod-install site-install mod-enable permissions
+up: dockerup install mod-install site-install mod-enable permissions debug
 
 ## dockerup :	Start up containers
 .PHONY: dockerup
@@ -58,15 +56,23 @@ mod-enable:
 	@echo ">> Habilitando modulos"
 	@$(EXEC_DRUPAL) sh -c "drush en -y "$(subst drupal/,,${DRUPAL_CONTRIB_MODULES_ENABLE}")"
 
-## twig-debug : Twig debug
-# .PHONY: twig-debug
-# define SETTINGS_CONFIG
-# '$$settings'"['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';" \\n'$$settings'"['cache']['bins']['render'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['page'] = 'cache.backend.null';" \\n'$$config'"['system.performance']['css']['preprocess'] = FALSE;" \\n'$$config'"['system.performance']['js']['preprocess'] = FALSE;" \\n
-# endef
+# debug : Twig debug
+.PHONY: debug
+define SETTINGS_CONFIG
+\\n'$$settings'"['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';" \\n'$$settings'"['cache']['bins']['render'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';" \\n'$$settings'"['cache']['bins']['page'] = 'cache.backend.null';" \\n'$$config'"['system.performance']['css']['preprocess'] = FALSE;" \\n'$$config'"['system.performance']['js']['preprocess'] = FALSE;" \\n
+endef
 
-# twig-debug:
-# 	@echo ">> Habilitando debud de twig"
-# 	@echo $(SETTINGS_CONFIG) >> teste.tmp
+debug:
+	@echo ">> Habilitando debud de twig"
+	@sed -i '/http.response.debug_cacheability_headers:/a\  twig.config:\n\     debug: true\n\     auto_reload: true\n\     cache: false' drupal/web/sites/development.services.yml
+	@echo $(SETTINGS_CONFIG) >> drupal/web/sites/default/settings.php
+
+	@echo ">> Definindo pasta de sync"
+	@sed -i "s/sites\/default\/files\/config_.*'/\/opt\/config\/sync'/g" drupal/web/sites/default/settings.php
+
+	@echo ">> Limpando caches"
+	@$(EXEC_DRUPAL) sh -c "drush cr"
+
 
 ## multi : multisite : make multisite NEW_SITE=<NOME_DO_NOVO_SITE>
 .PHONY: multisite
@@ -91,15 +97,13 @@ permissions:
 backup:
 	@$(EXEC_DRUPAL) sh -c "drush cr"
 	@$(EXEC_DRUPAL) sh -c "drush cex -y"
-	@$(EXEC_DRUPAL) sh -c "drush sql-dump --result-file=../$(BACKUP_DIR_FILE)"
+	@$(EXEC_DRUPAL) sh -c "drush sql-dump --result-file=/opt/config/dump/$(PROJECT_NAME).sql"
 
 ## restore	:	Backup drupal site
 .PHONY: restore
  restore: 
-	@$(EXEC_DRUPAL) sh -c "drush sqlc < ./$(BACKUP_DIR_FILE)"
-	@$(EXEC_DRUPAL) sh -c "drush cim -y"
-	@$(EXEC_DRUPAL) sh -c "drush updb -y"
-	@$(EXEC_DRUPAL) sh -c "drush cr"
+	@$(EXEC_DRUPAL) sh -c "drush sqlc < /opt/config/dump/$(PROJECT_NAME).sql"
+	@$(EXEC_DRUPAL) sh -c "drush deploy -y"
 
 ## usergroup : Adicionar usuário local no grupo www-data
 .PHONY: usergroup

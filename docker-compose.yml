@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args: 
-        - DRUPAL_IMAGE_VERSION=${DRUPAL_IMAGE_VERSION}
+        - DRUPAL_IMAGE_VERSION=$DRUPAL_IMAGE_VERSION
     ports: 
     - $DRUPAL_PORTS
     depends_on:
@@ -11,8 +11,8 @@ services:
     links:
       - db
     volumes:
-      - ${DRUPAL_LOCAL}:${DRUPAL_ROOT}
-      - ${PROJECT_CONFIG_PATH}/drupal:/opt/config
+      - $DRUPAL_LOCAL:$DRUPAL_ROOT
+      - $PROJECT_CONFIG_PATH/drupal:/opt/config
   db:
     image: $DB_IMAGE
     ports:
@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: $DB_USER
       POSTGRES_PASSWORD: $DB_PASSWORD
     volumes:      
-      - ${PROJECT_CONFIG_PATH}/db:/docker-entrypoint-initdb.d
+      - $PROJECT_CONFIG_PATH/db:/docker-entrypoint-initdb.d
       - pgdata:/var/lib/postgresql/data
 
 volumes:

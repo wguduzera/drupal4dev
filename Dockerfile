@@ -17,7 +17,8 @@ RUN set -ex \
     	vim \
 		curl \
 		unzip \
-    	mariadb-client \
+    	# mariadb-client \
+		postgresql-client \
         dnsutils \
         net-tools \
 		' \
