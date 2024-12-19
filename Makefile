@@ -75,13 +75,25 @@ debug:
 
 
 ## multi : multisite : make multisite NEW_SITE=<NOME_DO_NOVO_SITE>
-.PHONY: multisite
-multisite:
+.PHONY: multisite-mysql
+multisite-mysql:
 	@echo ">> Instalando novo site"
 	@$(EXEC_DB) sh -c "mysql -uroot -pdrupal -e 'CREATE DATABASE $(NEW_SITE);'"
 	@$(EXEC_DRUPAL) sh -c "touch /etc/apache2/sites-available/$(NEW_SITE).conf"
 	@$(EXEC_DRUPAL) sh -c "echo '<VirtualHost *:80> \n DocumentRoot /var/www/html \n ServerName $(NEW_SITE).localhost \n ErrorLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost.log \n CustomLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost_error.log combined \n </VirtualHost>' > /etc/apache2/sites-available/$(NEW_SITE).conf"
 	@$(EXEC_DRUPAL) sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --locale=pt-br --sites-subdir=$(NEW_SITE) --db-url='mysql://root:${DB_ROOT_PASSWORD}@db:${DB_PORT}/${NEW_SITE}' --site-name=$(NEW_SITE) -y"
+	@make permissions
+	@$(EXEC_DRUPAL) sh -c "echo '\$$sites['\''$(NEW_SITE).localhost'\''] = '\''$(NEW_SITE)'\'';'" >> drupal/web/sites/sites.php
+	@$(EXEC_DRUPAL) sh -c "drush cr"
+
+## multi : multisite : make multisite NEW_SITE=<NOME_DO_NOVO_SITE>
+.PHONY: multisite-pgsql
+multisite-pgsql:
+	@echo ">> Instalando novo site"
+	@$(EXEC_DB) sh -c "psql -U $(DB_USER) -c 'CREATE DATABASE $(NEW_SITE);'"
+	@$(EXEC_DRUPAL) sh -c "touch /etc/apache2/sites-available/$(NEW_SITE).conf"
+	@$(EXEC_DRUPAL) sh -c "echo '<VirtualHost *:80> \n DocumentRoot /var/www/html \n ServerName $(NEW_SITE).localhost \n ErrorLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost.log \n CustomLog \$${APACHE_LOG_DIR}/$(NEW_SITE).localhost_error.log combined \n </VirtualHost>' > /etc/apache2/sites-available/$(NEW_SITE).conf"
+	@$(EXEC_DRUPAL) sh -c "drush si standard install_configure_form.enable_update_status_emails=NULL --account-name=admin --account-pass=admin --locale=pt-br --sites-subdir=$(NEW_SITE) --db-url='pgsql://drupal:drupal@db:5432/$(NEW_SITE)' --site-name=$(NEW_SITE) -y"
 	@make permissions
 	@$(EXEC_DRUPAL) sh -c "echo '\$$sites['\''$(NEW_SITE).localhost'\''] = '\''$(NEW_SITE)'\'';'" >> drupal/web/sites/sites.php
 	@$(EXEC_DRUPAL) sh -c "drush cr"
